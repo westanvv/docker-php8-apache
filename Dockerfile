@@ -1,4 +1,4 @@
-FROM php:7.3-apache
+FROM php:8.0.3-apache
 
 WORKDIR /var/www
 
@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
         libfreetype6-dev \
         libssl-dev \
         libzip-dev \
+        libonig-dev \
         msmtp \
         msmtp-mta \
         ca-certificates \
@@ -32,9 +33,10 @@ RUN apt-get update && apt-get install -y \
         gnupg \
         cron \
     && pecl install \
-        mcrypt-1.0.2 \
-        xdebug \
-    && docker-php-ext-install \
+        mcrypt \
+        xdebug
+
+RUN docker-php-ext-install \
         bcmath \
         curl \
         exif \
@@ -51,10 +53,8 @@ RUN apt-get update && apt-get install -y \
         xsl \
         zip \
         tokenizer \
-        json \
-        iconv \
-    && docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/ \
-    && docker-php-ext-install gd \
+        iconv
+RUN docker-php-ext-install gd \
     && docker-php-ext-enable \
         xdebug \
         mcrypt
@@ -167,8 +167,8 @@ RUN chmod -R 777 /tmp
 
 RUN useradd -U -u 1000 docker
 RUN mkdir /home/docker
-#RUN chown -R docker:docker /home/docker /run/sshd /tmp /etc/msmtprc
-#USER docker
+RUN chown -R docker:docker /home/docker /run/sshd /tmp /etc/msmtprc
+USER docker
 
 EXPOSE 22
 

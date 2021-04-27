@@ -51,7 +51,7 @@ This is Apache + PHP 8 Docker Image
 ## XDebug
 
 - XDebug is turned **off** by default
-- **_Only_** for Windows - open port `9000` in firewall (or public network for Idea)
+- **_Only_** for Windows - open port `9003` in firewall (or public network for Idea)
 - **_Only_** for Linux - you need to alias your local IP: `sudo ifconfig en0 10.254.254.254 netmask 255.255.255.0 up`
 - **_Only_** for MAC OS - you need to alias your local IP: `sudo ifconfig en0 alias 10.254.254.254 255.255.255.0`
 - Create `PHP Remote Debug` and set **Idea key** to `docker`
