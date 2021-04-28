@@ -162,13 +162,14 @@ RUN rm -rf ./configs
 RUN mkdir /tmp/logs
 RUN mkdir /tmp/php
 RUN chown -R www-data:www-data ./
+RUN chown -R www-data:www-data /var/www
 RUN chmod -R 777 /var/www
 RUN chmod -R 777 /tmp
 
-RUN useradd -U -u 1000 docker
-RUN mkdir /home/docker
-RUN chown -R docker:docker /home/docker /run/sshd /tmp /etc/msmtprc
-USER docker
+RUN usermod -u 1000 www-data
+RUN mkdir /home/www-data
+RUN chown -R www-data:www-data /home/www-data /run/sshd /tmp /etc/msmtprc
+USER www-data
 
 EXPOSE 22
 
