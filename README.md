@@ -110,3 +110,6 @@ If it is necessary, there is a possibility to create ssh connection inside docke
           - ${PATH_TO_SOURCE_DIRECTORY}:/var/www
         ports:
           - ${YOUR_HTTP_PORT}:80
+
+## Generate SSL certificate
+        openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 -subj "/C=UA/ST=Cherkasy/L=Cherkasy/O=306/CN=dev" -keyout /tmp/php/ssl.key -out /tmp/php/ssl.crt

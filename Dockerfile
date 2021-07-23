@@ -1,4 +1,4 @@
-FROM php:8.0.3-apache
+FROM php:8.0.8-apache
 
 WORKDIR /var/www
 
@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
         libz-dev \
         libpq-dev \
         libjpeg-dev \
-        libfreetype6-dev \
         libssl-dev \
         libzip-dev \
         libonig-dev \
@@ -54,7 +53,8 @@ RUN docker-php-ext-install \
         zip \
         tokenizer \
         iconv
-RUN docker-php-ext-install gd \
+RUN docker-php-ext-configure gd --with-jpeg && \
+    docker-php-ext-install gd \
     && docker-php-ext-enable \
         xdebug \
         mcrypt
@@ -97,7 +97,8 @@ RUN apt-get install -y --force-yes \
         jpegoptim \
         optipng \
         pngquant \
-        gifsicle
+        gifsicle \
+        webp
 
 ######################################
 ## NodeJS
