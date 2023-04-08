@@ -98,9 +98,6 @@ If it is necessary, there is a possibility to create ssh connection inside docke
           - ${YOUR_HTTP_PORT}:80
           - ${YOUR_HTTPS_PORT}:443
           - ${YOUR_SSH_PORT}:22
-        environment:
-          - PHP_IDE_CONFIG=${YOUR_PHP_IDE_CONFIG}
-          - XDEBUG_CONFIG=${YOUR_XDEBUG_CONFIG}
           
 ## Minimal docker-compose configuration
 

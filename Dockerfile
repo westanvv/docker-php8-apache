@@ -45,7 +45,6 @@ RUN docker-php-ext-install \
         mysqli \
         opcache \
         pcntl \
-        pdo_mysql \
         simplexml \
         soap \
         xml \
