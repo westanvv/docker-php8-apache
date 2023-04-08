@@ -4,6 +4,7 @@ WORKDIR /var/www
 
 RUN apt-get update && apt-get install -y \
         git \
+        mariadb-client \
         imagemagick \
         libcurl4-openssl-dev \
         libfreetype6-dev \
@@ -52,6 +53,7 @@ RUN docker-php-ext-install \
         zip \
         tokenizer \
         iconv
+
 RUN docker-php-ext-configure gd --with-jpeg && \
     docker-php-ext-install gd \
     && docker-php-ext-enable \
@@ -102,7 +104,7 @@ RUN apt-get install -y --force-yes \
 ######################################
 ## NodeJS
 ######################################
-RUN curl -sL https://deb.nodesource.com/setup_14.x | bash -
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash -
 RUN apt-get install -y nodejs
 
 RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
