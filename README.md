@@ -76,9 +76,20 @@ If it is necessary, there is a possibility to create ssh connection inside docke
 
 ## Build commands
 
-    docker build -t php8-apache .
-    docker tag php8-apache:latest vnemchenko/php8-apache:latest
-    docker push vnemchenko/php8-apache:latest
+The image is built for `linux/amd64` (Linux / Intel) and `linux/arm64` (macOS Apple Silicon) under one tag.
+
+Create a builder (once):
+
+    docker buildx create --name multi --use
+    docker buildx inspect --bootstrap
+
+Build and push:
+
+    docker buildx build --platform linux/amd64,linux/arm64 -t vnemchenko/php8-apache:latest --push .
+
+Verify:
+
+    docker buildx imagetools inspect vnemchenko/php8-apache:latest
 
 ## Full docker-compose configuration
 
