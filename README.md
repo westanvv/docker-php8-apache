@@ -22,6 +22,7 @@ This is Apache + PHP 8.5 Docker Image (based on `php:8.5.10-apache-bookworm`)
 - pngquant
 - gifsicle
 - curl
+- less
 - mariadb-client (mysql, mysqldump)
 - cron
 
@@ -54,7 +55,7 @@ This is Apache + PHP 8.5 Docker Image (based on `php:8.5.10-apache-bookworm`)
 ## XDebug
 
 - XDebug is turned **off** by default
-- **_Only_** for Windows - open port `9001` in firewall (or public network for Idea)
+- **_Only_** for Windows - open port `9003` in firewall (or public network for Idea)
 - **_Only_** for Linux - you need to alias your local IP: `sudo ifconfig en0 10.254.254.254 netmask 255.255.255.0 up`
 - **_Only_** for MAC OS - you need to alias your local IP: `sudo ifconfig en0 alias 10.254.254.254 255.255.255.0`
 - Create `PHP Remote Debug` and set **Idea key** to `docker`
@@ -65,6 +66,7 @@ This is Apache + PHP 8.5 Docker Image (based on `php:8.5.10-apache-bookworm`)
 
 <img src="./images/creating_server.png" width="400" />
 
+- Xdebug client port is `9003` (Xdebug 3 / PhpStorm default)
 - **_Note_** that the last Intellij Idea creates a connection on the first run. You just to accept a connection
 
 ## SSH connection
@@ -77,12 +79,25 @@ If it is necessary, there is a possibility to create ssh connection inside docke
     login: root
     pass: root
 
+SSH host keys are generated on the first container start, so every container gets its own keys.
+They survive `docker restart`, but a recreated container (`docker compose up --force-recreate`, new image)
+gets new keys — accept the new fingerprint or run `ssh-keygen -R "[127.0.0.1]:${YOUR_SSH_PORT}"`.
+
 ## Running commands inside the container
 
-The container runs as `root` (required by sshd), Apache/PHP workers run as `www-data` (UID 1000).
+The container runs as `root` (required by sshd and cron), Apache/PHP workers run as `www-data` (UID 1000).
 Run composer/npm/yarn as `www-data` so created files are not owned by root:
 
     docker exec -it -u www-data <container> composer install
+
+## Tags
+
+| Tag | PHP | Debian | Node.js |
+|---|---|---|---|
+| `8.5`, `8.5.10`, `latest` | 8.5.10 | 12 (bookworm) | 24 |
+| `8.0` | 8.0.8 | 11 (bullseye) | 16 |
+
+Pin the major/minor tag in projects (`vnemchenko/php8-apache:8.5`) so `latest` updates do not change the PHP version unexpectedly.
 
 ## Build commands
 
@@ -93,18 +108,26 @@ Create a builder (once):
     docker buildx create --name multi --use
     docker buildx inspect --bootstrap
 
+Before the first 8.5 push, keep the previous PHP 8.0 image under its own tag (once):
+
+    docker buildx imagetools create -t vnemchenko/php8-apache:8.0 vnemchenko/php8-apache:latest
+
 Build and push:
 
-    docker buildx build --platform linux/amd64,linux/arm64 -t vnemchenko/php8-apache:latest --push .
+    docker buildx build --platform linux/amd64,linux/arm64 \
+        -t vnemchenko/php8-apache:8.5.10 \
+        -t vnemchenko/php8-apache:8.5 \
+        -t vnemchenko/php8-apache:latest \
+        --push .
 
 Verify:
 
-    docker buildx imagetools inspect vnemchenko/php8-apache:latest
+    docker buildx imagetools inspect vnemchenko/php8-apache:8.5
 
 ## Full docker-compose configuration
 
       application:
-        image: vnemchenko/php8-apache
+        image: vnemchenko/php8-apache:8.5
         volumes:
           - ${PATH_TO_SOURCE_DIRECTORY}:/var/www
           - ${PATH_TO_DOCKER_CONFIGS}/custom.ini:/usr/local/etc/php/conf.d/custom.ini
@@ -123,7 +146,7 @@ Verify:
 ## Minimal docker-compose configuration
 
       application:
-        image: vnemchenko/php8-apache
+        image: vnemchenko/php8-apache:8.5
         volumes:
           - ${PATH_TO_SOURCE_DIRECTORY}:/var/www
         ports:

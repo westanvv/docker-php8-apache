@@ -1,4 +1,9 @@
 .idea/
 .git/
-readme.md
 .gitignore
+.dockerignore
+.env
+.DS_Store
+README.md
+images/
+test/

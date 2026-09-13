@@ -9,29 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         cron \
         curl \
-        g++ \
         ghostscript \
         gifsicle \
         git \
-        gnupg \
         imagemagick \
         jpegoptim \
-        libcurl4-openssl-dev \
-        libfreetype6-dev \
-        libicu-dev \
-        libjpeg62-turbo-dev \
+        less \
         libjpeg-turbo-progs \
-        libldap2-dev \
-        libmcrypt-dev \
-        libmemcached-dev \
-        libonig-dev \
-        libpng-dev \
-        libpq-dev \
-        libssl-dev \
-        libwebp-dev \
-        libxml2-dev \
-        libxslt1-dev \
-        libzip-dev \
         mariadb-client \
         mc \
         msmtp \
@@ -43,16 +27,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         webp \
         wget \
-        zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # allow ImageMagick to read/write PDF (disabled by Debian policy)
+    && sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml
 
 #####################################
 # PHP extensions
 # curl, iconv, mbstring, simplexml, tokenizer, xml and opcache
-# are already built into the official php:8.5 image
+# are already built into the official php:8.5 image.
+# -dev packages are removed after the build, runtime libraries are kept.
 #####################################
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-    && docker-php-ext-configure intl \
+RUN savedAptMark="$(apt-mark showmanual)" \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        libfreetype6-dev \
+        libicu-dev \
+        libjpeg62-turbo-dev \
+        libldap2-dev \
+        libmcrypt-dev \
+        libmemcached-dev \
+        libpng-dev \
+        libpq-dev \
+        libwebp-dev \
+        libxml2-dev \
+        libxslt1-dev \
+        libzip-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-configure ldap --with-libdir="lib/$(uname -m)-linux-gnu/" \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
@@ -75,7 +74,19 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
         mcrypt \
         memcached \
         xdebug \
-    && rm -rf /tmp/pear
+    # keep only the shared libraries the compiled extensions link against
+    && apt-mark auto '.*' > /dev/null \
+    && apt-mark manual $savedAptMark > /dev/null \
+    && find /usr/local/lib/php/extensions -type f -name '*.so' -exec ldd '{}' ';' \
+        | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
+        | sort -u \
+        | xargs -r dpkg-query --search \
+        | cut -d: -f1 \
+        | sort -u \
+        | xargs -r apt-mark manual \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear \
+    && php -m > /dev/null
 
 ######################################
 ## NodeJS 24, Yarn, Grunt, Gulp
@@ -89,7 +100,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
 #####################################
 # Composer
 #####################################
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+COPY --from=composer:2.10 /usr/bin/composer /usr/local/bin/composer
 
 #####################################
 # FIX Apache
@@ -98,9 +109,10 @@ RUN rm -R /etc/apache2/sites-enabled/
 
 #####################################
 # SSH
+# Host keys are generated on container start (see CMD),
+# so every container gets its own keys
 #####################################
 RUN rm -f /etc/ssh/ssh_host_* \
-    && ssh-keygen -A \
     && echo 'root:root' | chpasswd \
     && mkdir -p /run/sshd \
     && chmod 0755 /run/sshd
@@ -122,12 +134,17 @@ COPY ./configs/msmtprc /etc/msmtprc
 # Last touch
 #####################################
 RUN usermod -u 1000 www-data \
+    && rmdir /var/www/html \
     && mkdir -p /tmp/logs /tmp/php /home/www-data \
     && chmod 0600 /etc/msmtprc \
     && chown -R www-data:www-data /var/www /home/www-data /tmp /etc/msmtprc \
-    && chmod -R 777 /var/www /tmp
+    && chmod -R 777 /tmp/logs /tmp/php \
+    && chmod 1777 /tmp
 
-# Runs as root so sshd can start; Apache workers (PHP) still run as www-data
-EXPOSE 22
+# Runs as root so sshd and cron can start; Apache workers (PHP) still run as www-data
+EXPOSE 22 443
 
-CMD ["sh", "-c", "/usr/sbin/sshd && exec apache2-foreground"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -s -o /dev/null http://127.0.0.1/server-status || exit 1
+
+CMD ["sh", "-c", "ssh-keygen -A >/dev/null; /usr/sbin/sshd || true; cron || true; exec apache2-foreground"]
