@@ -1,8 +1,8 @@
-This is Apache + PHP 8 Docker Image
+This is Apache + PHP 8.5 Docker Image (based on `php:8.5.10-apache-bookworm`)
 
 ## Installed packages:
 
-- nodejs
+- nodejs 24
 - yarn
 - grunt
 - gulp
@@ -12,7 +12,6 @@ This is Apache + PHP 8 Docker Image
 - imagemagick
 - msmtp
 - unzip
-- memcached
 - mc
 - openssh-server
 - gnupg
@@ -23,35 +22,39 @@ This is Apache + PHP 8 Docker Image
 - pngquant
 - gifsicle
 - curl
+- mariadb-client (mysql, mysqldump)
+- cron
 
 ## Installed PHP libraries:
 
-- mcrypt
-- xdebug
 - bcmath
 - curl
 - exif
+- gd (freetype, jpeg, webp)
+- iconv
 - intl
+- json
+- ldap
 - mbstring
-- pdo_mysql
+- mcrypt
+- memcached
 - mysqli
-- opcache
+- opcache (built into PHP since 8.5)
 - pcntl
 - pdo_mysql
+- pdo_pgsql
 - simplexml
 - soap
+- tokenizer
+- xdebug
 - xml
 - xsl
 - zip
-- tokenizer
-- json
-- iconv
-- ldap
 
 ## XDebug
 
 - XDebug is turned **off** by default
-- **_Only_** for Windows - open port `9003` in firewall (or public network for Idea)
+- **_Only_** for Windows - open port `9001` in firewall (or public network for Idea)
 - **_Only_** for Linux - you need to alias your local IP: `sudo ifconfig en0 10.254.254.254 netmask 255.255.255.0 up`
 - **_Only_** for MAC OS - you need to alias your local IP: `sudo ifconfig en0 alias 10.254.254.254 255.255.255.0`
 - Create `PHP Remote Debug` and set **Idea key** to `docker`
@@ -73,6 +76,13 @@ If it is necessary, there is a possibility to create ssh connection inside docke
     host: 127.0.0.1
     login: root
     pass: root
+
+## Running commands inside the container
+
+The container runs as `root` (required by sshd), Apache/PHP workers run as `www-data` (UID 1000).
+Run composer/npm/yarn as `www-data` so created files are not owned by root:
+
+    docker exec -it -u www-data <container> composer install
 
 ## Build commands
 
@@ -120,4 +130,4 @@ Verify:
           - ${YOUR_HTTP_PORT}:80
 
 ## Generate SSL certificate
-        openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 -subj "/C=UA/ST=Cherkasy/L=Cherkasy/O=306/CN=dev" -keyout /tmp/php/ssl.key -out /tmp/php/ssl.crt
+        openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 -subj "/C=UA/ST=Cherkasy/L=Cherkasy/O=306/CN=dev" -addext "subjectAltName=DNS:dev,DNS:localhost,IP:127.0.0.1" -addext "basicConstraints=critical,CA:FALSE" -keyout /tmp/php/ssl.key -out /tmp/php/ssl.crt
