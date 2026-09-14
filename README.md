@@ -116,7 +116,6 @@ Build and push:
 
     docker buildx build --platform linux/amd64,linux/arm64 \
         -t vnemchenko/php8-apache:8.5.10 \
-        -t vnemchenko/php8-apache:8.5 \
         -t vnemchenko/php8-apache:latest \
         --push .
 
