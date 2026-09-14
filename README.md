@@ -1,8 +1,8 @@
-This is Apache + PHP 8 Docker Image
+This is Apache + PHP 8.5 Docker Image (based on `php:8.5.10-apache-bookworm`)
 
 ## Installed packages:
 
-- nodejs
+- nodejs 24
 - yarn
 - grunt
 - gulp
@@ -12,7 +12,6 @@ This is Apache + PHP 8 Docker Image
 - imagemagick
 - msmtp
 - unzip
-- memcached
 - mc
 - openssh-server
 - gnupg
@@ -23,30 +22,35 @@ This is Apache + PHP 8 Docker Image
 - pngquant
 - gifsicle
 - curl
+- less
+- mariadb-client (mysql, mysqldump)
+- cron
 
 ## Installed PHP libraries:
 
-- mcrypt
-- xdebug
 - bcmath
 - curl
 - exif
+- gd (freetype, jpeg, webp)
+- iconv
 - intl
+- json
+- ldap
 - mbstring
-- pdo_mysql
+- mcrypt
+- memcached
 - mysqli
-- opcache
+- opcache (built into PHP since 8.5)
 - pcntl
 - pdo_mysql
+- pdo_pgsql
 - simplexml
 - soap
+- tokenizer
+- xdebug
 - xml
 - xsl
 - zip
-- tokenizer
-- json
-- iconv
-- ldap
 
 ## XDebug
 
@@ -62,6 +66,7 @@ This is Apache + PHP 8 Docker Image
 
 <img src="./images/creating_server.png" width="400" />
 
+- Xdebug client port is `9003` (Xdebug 3 / PhpStorm default)
 - **_Note_** that the last Intellij Idea creates a connection on the first run. You just to accept a connection
 
 ## SSH connection
@@ -74,16 +79,54 @@ If it is necessary, there is a possibility to create ssh connection inside docke
     login: root
     pass: root
 
+SSH host keys are generated on the first container start, so every container gets its own keys.
+They survive `docker restart`, but a recreated container (`docker compose up --force-recreate`, new image)
+gets new keys — accept the new fingerprint or run `ssh-keygen -R "[127.0.0.1]:${YOUR_SSH_PORT}"`.
+
+## Running commands inside the container
+
+The container runs as `root` (required by sshd and cron), Apache/PHP workers run as `www-data` (UID 1000).
+Run composer/npm/yarn as `www-data` so created files are not owned by root:
+
+    docker exec -it -u www-data <container> composer install
+
+## Tags
+
+| Tag | PHP | Debian | Node.js |
+|---|---|---|---|
+| `8.5`, `8.5.10`, `latest` | 8.5.10 | 12 (bookworm) | 24 |
+| `8.0` | 8.0.8 | 11 (bullseye) | 16 |
+
+Pin the major/minor tag in projects (`vnemchenko/php8-apache:8.5`) so `latest` updates do not change the PHP version unexpectedly.
+
 ## Build commands
 
-    docker build -t php8-apache .
-    docker tag php8-apache:latest vnemchenko/php8-apache:latest
-    docker push vnemchenko/php8-apache:latest
+The image is built for `linux/amd64` (Linux / Intel) and `linux/arm64` (macOS Apple Silicon) under one tag.
+
+Create a builder (once):
+
+    docker buildx create --name multi --use
+    docker buildx inspect --bootstrap
+
+Before the first 8.5 push, keep the previous PHP 8.0 image under its own tag (once):
+
+    docker buildx imagetools create -t vnemchenko/php8-apache:8.0 vnemchenko/php8-apache:latest
+
+Build and push:
+
+    docker buildx build --platform linux/amd64,linux/arm64 \
+        -t vnemchenko/php8-apache:8.5.10 \
+        -t vnemchenko/php8-apache:latest \
+        --push .
+
+Verify:
+
+    docker buildx imagetools inspect vnemchenko/php8-apache:8.5
 
 ## Full docker-compose configuration
 
       application:
-        image: vnemchenko/php8-apache
+        image: vnemchenko/php8-apache:8.5
         volumes:
           - ${PATH_TO_SOURCE_DIRECTORY}:/var/www
           - ${PATH_TO_DOCKER_CONFIGS}/custom.ini:/usr/local/etc/php/conf.d/custom.ini
@@ -102,11 +145,11 @@ If it is necessary, there is a possibility to create ssh connection inside docke
 ## Minimal docker-compose configuration
 
       application:
-        image: vnemchenko/php8-apache
+        image: vnemchenko/php8-apache:8.5
         volumes:
           - ${PATH_TO_SOURCE_DIRECTORY}:/var/www
         ports:
           - ${YOUR_HTTP_PORT}:80
 
 ## Generate SSL certificate
-        openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 -subj "/C=UA/ST=Cherkasy/L=Cherkasy/O=306/CN=dev" -keyout /tmp/php/ssl.key -out /tmp/php/ssl.crt
+        openssl req -new -newkey rsa:4096 -days 3650 -nodes -x509 -subj "/C=UA/ST=Cherkasy/L=Cherkasy/O=306/CN=dev" -addext "subjectAltName=DNS:dev,DNS:localhost,IP:127.0.0.1" -addext "basicConstraints=critical,CA:FALSE" -keyout /tmp/php/ssl.key -out /tmp/php/ssl.crt

@@ -1,126 +1,106 @@
-FROM php:8.0.8-apache
+FROM php:8.5.10-apache-bookworm
 
 WORKDIR /var/www
 
-RUN apt-get update && apt-get install -y \
+#####################################
+# System packages
+#####################################
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        cron \
+        curl \
+        ghostscript \
+        gifsicle \
         git \
-        mariadb-client \
         imagemagick \
-        libcurl4-openssl-dev \
-        libfreetype6-dev \
-        libicu-dev \
+        jpegoptim \
+        less \
         libjpeg-turbo-progs \
-        libjpeg62-turbo-dev \
-        libmcrypt-dev \
-        libpng-dev \
-        libxml2-dev \
-        libxslt-dev \
-        libz-dev \
-        libpq-dev \
-        libjpeg-dev \
-        libssl-dev \
-        libzip-dev \
-        libonig-dev \
+        mariadb-client \
+        mc \
         msmtp \
         msmtp-mta \
-        ca-certificates \
-        unzip \
-        wget \
-        zlib1g-dev \
-        libmemcached-dev \
-        mc \
         openssh-server \
-        gnupg \
-        cron \
-    && pecl install \
-        mcrypt \
-        xdebug
-
-RUN docker-php-ext-install \
-        bcmath \
-        curl \
-        exif \
-        intl \
-        mbstring \
-        pdo_mysql \
-        mysqli \
-        opcache \
-        pcntl \
-        simplexml \
-        soap \
-        xml \
-        xsl \
-        zip \
-        tokenizer \
-        iconv
-
-RUN docker-php-ext-configure gd --with-jpeg && \
-    docker-php-ext-install gd \
-    && docker-php-ext-enable \
-        xdebug \
-        mcrypt
-
-#####################################
-# Human Language and Character Encoding Support:
-# Install intl and requirements
-#####################################
-
-RUN apt-get install -y \
-        zlib1g-dev \
-        libicu-dev g++ \
-    && docker-php-ext-configure intl \
-    && docker-php-ext-install intl
-
-#####################################
-# GHOSTSCRIPT:
-#####################################
-
-# Install the ghostscript extension
-# for PDF editing
-
-RUN apt-get install -y \
-        poppler-utils \
-        ghostscript
-
-#####################################
-# LDAP:
-#####################################
-RUN apt-get install -y \
-        libldap2-dev \
-    && docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ \
-    && docker-php-ext-install ldap
-
-#####################################
-# Image optimizers:
-#####################################
-USER root
-RUN apt-get install -y --force-yes \
-        jpegoptim \
         optipng \
         pngquant \
-        gifsicle \
-        webp
+        poppler-utils \
+        unzip \
+        webp \
+        wget \
+    && rm -rf /var/lib/apt/lists/* \
+    # allow ImageMagick to read/write PDF (disabled by Debian policy)
+    && sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml
+
+#####################################
+# PHP extensions
+# curl, iconv, mbstring, simplexml, tokenizer, xml and opcache
+# are already built into the official php:8.5 image.
+# -dev packages are removed after the build, runtime libraries are kept.
+#####################################
+RUN savedAptMark="$(apt-mark showmanual)" \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        libfreetype6-dev \
+        libicu-dev \
+        libjpeg62-turbo-dev \
+        libldap2-dev \
+        libmcrypt-dev \
+        libmemcached-dev \
+        libpng-dev \
+        libpq-dev \
+        libwebp-dev \
+        libxml2-dev \
+        libxslt1-dev \
+        libzip-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-configure ldap --with-libdir="lib/$(uname -m)-linux-gnu/" \
+    && docker-php-ext-install -j"$(nproc)" \
+        bcmath \
+        exif \
+        gd \
+        intl \
+        ldap \
+        mysqli \
+        pcntl \
+        pdo_mysql \
+        pdo_pgsql \
+        soap \
+        xsl \
+        zip \
+    && pecl install \
+        mcrypt-1.0.9 \
+        memcached-3.4.0 \
+        xdebug-3.5.3 \
+    && docker-php-ext-enable \
+        mcrypt \
+        memcached \
+        xdebug \
+    # keep only the shared libraries the compiled extensions link against
+    && apt-mark auto '.*' > /dev/null \
+    && apt-mark manual $savedAptMark > /dev/null \
+    && find /usr/local/lib/php/extensions -type f -name '*.so' -exec ldd '{}' ';' \
+        | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
+        | sort -u \
+        | xargs -r dpkg-query --search \
+        | cut -d: -f1 \
+        | sort -u \
+        | xargs -r apt-mark manual \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear \
+    && php -m > /dev/null
 
 ######################################
-## NodeJS
+## NodeJS 24, Yarn, Grunt, Gulp
 ######################################
-RUN curl -sL https://deb.nodesource.com/setup_16.x | bash -
-RUN apt-get install -y nodejs
-
-RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
-RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
-RUN apt-get update && apt-get install -y yarn
-
-######################################
-## Grunt
-######################################
-RUN npm i -g grunt-cli gulp-cli
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm i -g yarn grunt-cli gulp-cli \
+    && npm cache clean --force
 
 #####################################
 # Composer
 #####################################
-RUN curl -s https://getcomposer.org/installer | php \
-    && mv composer.phar /usr/local/bin/composer
+COPY --from=composer:2.10 /usr/bin/composer /usr/local/bin/composer
 
 #####################################
 # FIX Apache
@@ -129,20 +109,13 @@ RUN rm -R /etc/apache2/sites-enabled/
 
 #####################################
 # SSH
+# Host keys are generated on container start (see CMD),
+# so every container gets its own keys
 #####################################
-RUN rm -f /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_rsa_key
-RUN ssh-keygen -q -N "" -t dsa -f /etc/ssh/ssh_host_ecdsa_key
-RUN ssh-keygen -q -N "" -t rsa -f /etc/ssh/ssh_host_rsa_key
-RUN ssh-keygen -A
-RUN echo 'root:root' | chpasswd
-RUN mkdir /run/sshd
-RUN chmod 0755 /run/sshd
-
-#####################################
-# Mail configration
-#####################################
-RUN touch /etc/msmtprc
-RUN chmod 0600 /etc/msmtprc
+RUN rm -f /etc/ssh/ssh_host_* \
+    && echo 'root:root' | chpasswd \
+    && mkdir -p /run/sshd \
+    && chmod 0755 /run/sshd
 
 #####################################
 # Coping configration
@@ -156,23 +129,22 @@ COPY ./configs/virtualhost.conf /etc/apache2/sites-enabled/virtualhost.conf
 COPY ./configs/ssl/server.crt /etc/apache2/ssl/server.crt
 COPY ./configs/ssl/server.key /etc/apache2/ssl/server.key
 COPY ./configs/msmtprc /etc/msmtprc
-RUN rm -rf ./configs
 
 #####################################
 # Last touch
 #####################################
-RUN mkdir /tmp/logs
-RUN mkdir /tmp/php
-RUN chown -R www-data:www-data ./
-RUN chown -R www-data:www-data /var/www
-RUN chmod -R 777 /var/www
-RUN chmod -R 777 /tmp
+RUN usermod -u 1000 www-data \
+    && rmdir /var/www/html \
+    && mkdir -p /tmp/logs /tmp/php /home/www-data \
+    && chmod 0600 /etc/msmtprc \
+    && chown -R www-data:www-data /var/www /home/www-data /tmp /etc/msmtprc \
+    && chmod -R 777 /tmp/logs /tmp/php \
+    && chmod 1777 /tmp
 
-RUN usermod -u 1000 www-data
-RUN mkdir /home/www-data
-RUN chown -R www-data:www-data /home/www-data /run/sshd /tmp /etc/msmtprc
-USER www-data
+# Runs as root so sshd and cron can start; Apache workers (PHP) still run as www-data
+EXPOSE 22 443
 
-EXPOSE 22
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -s -o /dev/null http://127.0.0.1/server-status || exit 1
 
-CMD apache2-foreground | /usr/sbin/sshd -D
+CMD ["sh", "-c", "ssh-keygen -A >/dev/null; /usr/sbin/sshd || true; cron || true; exec apache2-foreground"]
