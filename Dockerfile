@@ -1,4 +1,4 @@
-FROM php:8.5.10-apache-bookworm
+FROM php:8.5.12-apache-bookworm
 
 WORKDIR /var/www
 

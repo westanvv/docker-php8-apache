@@ -1,4 +1,4 @@
-This is Apache + PHP 8.5 Docker Image (based on `php:8.5.10-apache-bookworm`)
+This is Apache + PHP 8.5 Docker Image (based on `php:8.5.12-apache-bookworm`)
 
 ## Installed packages:
 
@@ -94,7 +94,7 @@ Run composer/npm/yarn as `www-data` so created files are not owned by root:
 
 | Tag | PHP | Debian | Node.js |
 |---|---|---|---|
-| `8.5`, `8.5.10`, `latest` | 8.5.10 | 12 (bookworm) | 24 |
+| `8.5`, `8.5.12`, `latest` | 8.5.12 | 12 (bookworm) | 24 |
 | `8.0` | 8.0.8 | 11 (bullseye) | 16 |
 
 Pin the major/minor tag in projects (`vnemchenko/php8-apache:8.5`) so `latest` updates do not change the PHP version unexpectedly.
@@ -115,7 +115,7 @@ Before the first 8.5 push, keep the previous PHP 8.0 image under its own tag (on
 Build and push:
 
     docker buildx build --platform linux/amd64,linux/arm64 \
-        -t vnemchenko/php8-apache:8.5.10 \
+        -t vnemchenko/php8-apache:8.5.12 \
         -t vnemchenko/php8-apache:latest \
         --push .
 
